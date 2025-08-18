@@ -1,42 +1,3 @@
-// src/components/molecules/EvalMessage.jsx
-import React from "react";
-import { Box, Typography } from "@mui/material";
-import { CheckCircle, Cancel } from "@mui/icons-material";
-
-export default function EvalMessage({ result, comment, suggestion }) {
-  if (!result) return null;
-
-  const pass = String(result).toLowerCase() === "pass";
-
-  return (
-    <Box mt={1.25}>
-      <Box display="flex" alignItems="center">
-        {pass ? (
-          <CheckCircle sx={{ color: "green", fontSize: 20, mr: 1 }} />
-        ) : (
-          <Cancel sx={{ color: "red", fontSize: 20, mr: 1 }} />
-        )}
-        <Typography
-          variant="body2"
-          sx={{ color: pass ? "green" : "red", fontWeight: 600 }}
-        >
-          {comment}
-        </Typography>
-      </Box>
-
-      {suggestion && (
-        <Typography
-          variant="caption"
-          sx={{ display: "block", mt: 0.75, color: "text.secondary" }}
-        >
-          <strong>GenAI Output:</strong> {suggestion}
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
-    
 // src/pages/IM001Form.js
 import React from "react";
 import { Box, Grid, Paper, Stack } from "@mui/material";
@@ -102,7 +63,6 @@ export default function IM001Form({ statusOptions, countriesOptions }) {
               status: values.status,
               knownCountries: (values.countriesImpacted || []).join(", "),
             };
-
             const data = await submitIncidentReview(payload);
             setEvaluationResults(data);
           } catch (err) {
@@ -154,6 +114,7 @@ export default function IM001Form({ statusOptions, countriesOptions }) {
                   error={Boolean(touched.title && errors.title)}
                   helperText={touched.title && errors.title}
                 />
+                {/* EvalMessage: Title */}
                 <EvalMessage
                   result={evaluationResults?.titleResult}
                   comment={evaluationResults?.titleComment}
@@ -163,145 +124,138 @@ export default function IM001Form({ statusOptions, countriesOptions }) {
             </Grid>
 
             {/* Row 2: Status */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <Dropdown
-                  required
-                  label="Status"
-                  options={statusOptions}
-                  value={values.status}
-                  onChange={(v) => setFieldValue("status", v || "")}
-                  error={touched.status && errors.status}
-                  helperText={touched.status && errors.status}
-                  onBlur={handleBlur}
-                  // listboxTestId="status-listbox"
-                />
-              </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <Dropdown
+                required
+                label="Status"
+                options={statusOptions}
+                value={values.status}
+                onChange={(v) => setFieldValue("status", v || "")}
+                error={touched.status && errors.status}
+                helperText={touched.status && errors.status}
+                onBlur={handleBlur}
+              />
             </Grid>
 
             {/* Row 3: Countries and Impact Desc */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 3, boxShadow: "0 rgba(0, 0, 0, 0.16) 0px 1px 4px" }}
-                >
-                  <Grid mb={4}>
-                    <Dropdown
-                      label="Known countries/entities impacted"
-                      multiple
-                      options={countriesOptions}
-                      value={values.countriesImpacted}
-                      onChange={(v) => setFieldValue("countriesImpacted", v)}
-                      // listboxTestId="countries-listbox"
-                    />
-                  </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 rgba(0, 0, 0, 0.16) 0px 1px 4px" }}>
+                <Grid mb={4}>
+                  <Dropdown
+                    label="Known countries/entities impacted"
+                    multiple
+                    options={countriesOptions}
+                    value={values.countriesImpacted}
+                    onChange={(v) => setFieldValue("countriesImpacted", v)}
+                  />
+                </Grid>
 
-                  <Grid>
-                    <TextArea
-                      required
-                      name="impactDescription"
-                      minRows={3}
-                      value={values.impactDescription}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={Boolean(touched.impactDescription && errors.impactDescription)}
-                      helperText={touched.impactDescription && errors.impactDescription}
-                      label="What does this mean for our customers and colleagues?"
-                    />
-                    <EvalMessage
-                      result={evaluationResults?.whatDoesThisMeanResult}
-                      comment={evaluationResults?.whatDoesThisMeanComment}
-                      suggestion={evaluationResults?.whatDoesThisMeanSuggestion}
-                    />
-                  </Grid>
-                </Paper>
-              </Grid>
+                <Grid>
+                  <TextArea
+                    required
+                    name="impactDescription"
+                    minRows={3}
+                    value={values.impactDescription}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={Boolean(touched.impactDescription && errors.impactDescription)}
+                    helperText={touched.impactDescription && errors.impactDescription}
+                    label="What does this mean for our customers and colleagues?"
+                  />
+                  {/* EvalMessage: Impact/WhatDoesThisMean */}
+                  <EvalMessage
+                    result={evaluationResults?.whatDoesThisMeanResult}
+                    comment={evaluationResults?.whatDoesThisMeanComment}
+                    suggestion={evaluationResults?.whatDoesThisMeanSuggestion}
+                  />
+                </Grid>
+              </Paper>
             </Grid>
 
             {/* Row 4: Latest update */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <InputText
-                  required
-                  size="small"
-                  fullWidth
-                  label="What's the latest update?"
-                  name="latestUpdate"
-                  value={values.latestUpdate}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={Boolean(touched.latestUpdate && errors.latestUpdate)}
-                  helperText={touched.latestUpdate && errors.latestUpdate}
-                />
-                <EvalMessage
-                  result={evaluationResults?.latestUpdateResult}
-                  comment={evaluationResults?.latestUpdateComment}
-                  suggestion={evaluationResults?.latestUpdateSuggestion}
-                />
-              </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <InputText
+                required
+                size="small"
+                fullWidth
+                label="What's the latest update?"
+                name="latestUpdate"
+                value={values.latestUpdate}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={Boolean(touched.latestUpdate && errors.latestUpdate)}
+                helperText={touched.latestUpdate && errors.latestUpdate}
+              />
+              {/* EvalMessage: Latest Update */}
+              <EvalMessage
+                result={evaluationResults?.latestUpdateResult}
+                comment={evaluationResults?.latestUpdateComment}
+                suggestion={evaluationResults?.latestUpdateSuggestion}
+              />
             </Grid>
 
             {/* Row 5: Known root cause */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <TextArea
-                  required
-                  label="Known root cause"
-                  name="knownRootCause"
-                  minRows={3}
-                  value={values.knownRootCause}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={Boolean(touched.knownRootCause && errors.knownRootCause)}
-                  helperText={touched.knownRootCause && errors.knownRootCause}
-                />
-                <EvalMessage
-                  result={evaluationResults?.knownRootCauseResult}
-                  comment={evaluationResults?.knownRootCauseComment}
-                  suggestion={evaluationResults?.knownRootCauseSuggestion}
-                />
-              </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <TextArea
+                required
+                label="Known root cause"
+                name="knownRootCause"
+                minRows={3}
+                value={values.knownRootCause}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={Boolean(touched.knownRootCause && errors.knownRootCause)}
+                helperText={touched.knownRootCause && errors.knownRootCause}
+              />
+              {/* EvalMessage: Root Cause */}
+              <EvalMessage
+                result={evaluationResults?.knownRootCauseResult}
+                comment={evaluationResults?.knownRootCauseComment}
+                suggestion={evaluationResults?.knownRootCauseSuggestion}
+              />
             </Grid>
 
             {/* Row 6: Summary */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <TextArea
-                  required
-                  label="Summary"
-                  name="summary"
-                  minRows={3}
-                  value={values.summary}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={Boolean(touched.summary && errors.summary)}
-                  helperText={touched.summary && errors.summary}
-                />
-                <EvalMessage
-                  result={evaluationResults?.summaryResult}
-                  comment={evaluationResults?.summaryComment}
-                  suggestion={evaluationResults?.summarySuggestion}
-                />
-              </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <TextArea
+                required
+                label="Summary"
+                name="summary"
+                minRows={3}
+                value={values.summary}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={Boolean(touched.summary && errors.summary)}
+                helperText={touched.summary && errors.summary}
+              />
+              {/* EvalMessage: Summary */}
+              <EvalMessage
+                result={evaluationResults?.summaryResult}
+                comment={evaluationResults?.summaryComment}
+                suggestion={evaluationResults?.summarySuggestion}
+              />
             </Grid>
 
             {/* Row 7: Actions */}
-            <Grid container sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end">
-                  <Stack direction="row" spacing={2}>
-                    <FormButton label="Clear All" onClick={() => { resetForm(); setEvaluationResults(null); }} />
-                    <FormButton
-                      type="submit"
-                      label="Submit"
-                      variant="contained"
-                      color="primary"
-                      disabled={isSubmitting}
-                    />
-                  </Stack>
-                </Box>
-              </Grid>
+            <Grid item xs={12} sx={{ mt: 3 }}>
+              <Box display="flex" justifyContent="flex-end">
+                <Stack direction="row" spacing={2}>
+                  <FormButton
+                    label="Clear All"
+                    onClick={() => {
+                      resetForm();
+                      setEvaluationResults(null);
+                    }}
+                  />
+                  <FormButton
+                    type="submit"
+                    label="Submit"
+                    variant="contained"
+                    color="primary"
+                    disabled={isSubmitting}
+                  />
+                </Stack>
+              </Box>
             </Grid>
           </Form>
         )}
@@ -310,40 +264,40 @@ export default function IM001Form({ statusOptions, countriesOptions }) {
   );
 }
 
-// src/services/api.js (add these exports to your existing file)
-import axios from "axios";
-import EnvManager from "../configurations/envManager";
 
-const API_URL = EnvManager.API_URL;
+// src/components/molecules/EvalMessage.jsx
+import React from "react";
+import { Box, Typography } from "@mui/material";
+import { CheckCircle, Cancel } from "@mui/icons-material";
 
-// POST /api/v1/im001/review-min
-export const submitIncidentReview = async (payload) => {
-  const { data } = await axios.post(`${API_URL}/api/v1/im001/review-min`, payload, {
-    withCredentials: true,
-  });
-  return data; // single review result object
-};
+export default function EvalMessage({ result, comment, suggestion }) {
+  if (!result) return null;
+  const pass = String(result).toLowerCase() === "pass";
 
-// GET /api/v1/im001/review-result
-export const getIncidentReviewResults = async ({
-  page = 1,
-  pageSize = 10,
-  filterBy,
-  sortBy,
-  dateRange,
-  view = "current-user-results",
-} = {}) => {
-  const params = {
-    page,
-    page_size: pageSize,
-    filter_by: filterBy,
-    sort_by: sortBy,
-    date_range: dateRange,
-    view,
-  };
-  const { data } = await axios.get(`${API_URL}/api/v1/im001/review-result`, {
-    params,
-    withCredentials: true,
-  });
-  return data; // { data: [...], metadata: {...} }
-};
+  return (
+    <Box mt={1}>
+      <Box display="flex" alignItems="center">
+        {pass ? (
+          <CheckCircle sx={{ color: "green", fontSize: 20, mr: 1 }} />
+        ) : (
+          <Cancel sx={{ color: "red", fontSize: 20, mr: 1 }} />
+        )}
+        <Typography
+          variant="body2"
+          sx={{ color: pass ? "green" : "red", fontWeight: 600 }}
+        >
+          {comment}
+        </Typography>
+      </Box>
+
+      {suggestion && (
+        <Typography
+          variant="caption"
+          sx={{ display: "block", mt: 0.5, color: "text.secondary" }}
+        >
+          <strong>GenAI Output:</strong> {suggestion}
+        </Typography>
+      )}
+    </Box>
+  );
+}
