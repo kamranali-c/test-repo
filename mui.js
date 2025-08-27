@@ -1,30 +1,34 @@
-// add to imports
-import { ChevronLeft, ChevronRight, Loop as LoopIcon } from "@mui/icons-material";
+// keep this ref in your component (already there)
+const formikValuesRef = React.useRef(initialValues || {});
+const bindFormikValues = (vals) => (formikValuesRef.current = vals || {});
 
-// inside Carousel's return, ABOVE the grid wrapper:
-<Box sx={{ width: "100%" }}>
-  {/* Loop / Regenerate button */}
-  <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 0.5 }}>
-    <IconButton
-      aria-label="regenerate suggestions"
-      onClick={onRetry}
-      disabled={!onRetry}
-      size="small"
-    >
-      <LoopIcon fontSize="small" />
-    </IconButton>
-  </Box>
+// helpers
++const getFormValue = (key) => {
++  const v = formikValuesRef.current?.[key];
++  return Array.isArray(v) ? v.join(", ") : (v ?? "");
++};
++const getPrevResponse = (key) =>
++  evalLatest?.[key]?.value ??
++  evalLatest?.[key]?.suggestion?.[0] ??
++  "";
 
-  {/* existing grid with docked arrows + slider goes here */}
-  <Box
-    sx={{
-      display: "grid",
-      gridTemplateColumns: "40px 1fr 40px",
-      alignItems: "center",
-      width: "100%",
-      columnGap: 8,
-    }}
-  >
-    {/* ...left IconButton, center <Slider/>, right IconButton... */}
-  </Box>
-</Box>
+// in onHandleRegenerateResponse:
+-const latestFieldValue = getCurrentValueForKey(fieldData.name);
++const currentValue = getFormValue(fieldData.name);
++const previous = getPrevResponse(fieldData.name);
+
+const payload = {
+  taskId: incidentReviewResponse?.taskId,
+  incidentNumber: incidentReviewResponse?.incidentNumber,
+  field: fieldData.name,
+- value: latestFieldValue,
+- previousResponse: latestFieldValue,
++ value: currentValue,            // <- what’s currently in the form
++ previousResponse: previous,     // <- last model output / suggestion
+  reason,
+};
+
+{({ values /* ... */ }) => {
+  bindFormikValues(values);
+  // ...
+}}
