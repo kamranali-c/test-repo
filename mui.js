@@ -6,7 +6,7 @@ import "slick-carousel/slick/slick-theme.css";
 import { Box, Typography, IconButton } from "@mui/material";
 import { ChevronLeft, ChevronRight, Loop as LoopIcon } from "@mui/icons-material";
 
-const ARROW_SIZE = 36; // also used as left/right gutter so content never sits under arrows
+const ARROW_SIZE = 36; // also used as left/right gutter
 
 function PrevArrow({ onClick, currentSlide }) {
   const disabled = currentSlide === 0;
@@ -61,22 +61,26 @@ function NextArrow({ onClick, currentSlide, slideCount }) {
 }
 
 export default function Carousel({ list = [], onRetry }) {
-  const isSingle = list.length <= 1;
+  const slidesToShow = Math.min(2, Math.max(1, list.length)); // 2 visible (or 1 if only one item)
 
   const settings = {
     dots: false,
     infinite: false,
     speed: 300,
-    slidesToShow: isSingle ? 1 : 2,
+    slidesToShow,
     slidesToScroll: 1,
     initialSlide: 0,
     arrows: true,
     prevArrow: <PrevArrow />,
     nextArrow: <NextArrow />,
+    // always 2 across breakpoints (or 1 if list length < 2)
     responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: isSingle ? 1 : 2 } },
-      { breakpoint: 600, settings: { slidesToShow: 1, initialSlide: 0 } },
-      { breakpoint: 480, settings: { slidesToShow: 1 } },
+      { breakpoint: 3000, settings: { slidesToShow } },
+      { breakpoint: 1920, settings: { slidesToShow } },
+      { breakpoint: 1280, settings: { slidesToShow } },
+      { breakpoint: 960,  settings: { slidesToShow } },
+      { breakpoint: 600,  settings: { slidesToShow } },
+      { breakpoint: 0,    settings: { slidesToShow } },
     ],
   };
 
@@ -93,10 +97,11 @@ export default function Carousel({ list = [], onRetry }) {
           position: "relative",
           width: "100%",
           overflow: "hidden",
-          // gutters so arrows never overlap content
-          "& .slick-list": { padding: `0 ${ARROW_SIZE + 8}px !important` },
           "& .slick-slider, & .slick-list, & .slick-track": { width: "100%" },
-          "& .slick-slide > div": { padding: "0 6px" }, // small spacing between slides
+          // gutters so arrows never overlap slide content
+          "& .slick-list": { padding: `0 ${ARROW_SIZE + 8}px !important` },
+          // small spacing between slides
+          "& .slick-slide > div": { padding: "0 6px" },
         }}
       >
         <Slider {...settings}>
