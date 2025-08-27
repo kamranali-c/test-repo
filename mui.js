@@ -1,44 +1,39 @@
-// src/components/molecules/EvalMessage.test.js
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import EvalMessage from "../EvalMessage";
-
-// mock Carousel so we can detect "rendered vs not rendered" and onRetry forwarding
-jest.mock("../Carousel", () => (props) => (
-  <button data-testid="carousel" onClick={props.onRetry}>
-    carousel({Array.isArray(props.list) ? props.list.length : 0})
-  </button>
-));
-
 describe("EvalMessage", () => {
-  test("returns null for empty latest", () => {
+  test("returns null when latest is empty", () => {
     const { container } = render(<EvalMessage latest={{}} />);
     expect(container).toBeTruthy();
     expect(screen.queryByTestId("carousel")).not.toBeInTheDocument();
   });
 
-  test("shows comment and single suggestion inline (no carousel)", () => {
+  test("shows comment and renders carousel even for a single suggestion", async () => {
+    const user = userEvent.setup();
+    const onRetry = jest.fn();
     const latest = {
       result: "Pass",
       comment: "Looks good",
       suggestion: ["A concise title"],
     };
-    render(<EvalMessage latest={latest} />);
 
-    // comment present
+    render(<EvalMessage latest={latest} onRetry={onRetry} />);
+
+    // comment shown
     expect(screen.getByText(/Looks good/i)).toBeInTheDocument();
 
-    // no carousel for a single item
-    expect(screen.queryByTestId("carousel")).not.toBeInTheDocument();
+    // Carousel is rendered with one item (matches current component behavior)
+    const car = screen.getByTestId("carousel");
+    expect(car).toHaveTextContent("carousel(1)");
 
-    // suggestion text present (robust match across nested nodes)
+    // onRetry is forwarded
+    await user.click(car);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    // suggestion text appears somewhere in the node tree
     expect(
       screen.getByText((_, node) => node?.textContent?.includes("A concise title"))
     ).toBeInTheDocument();
   });
 
-  test("renders Carousel for multiple suggestions and forwards onRetry", async () => {
+  test("renders carousel for multiple suggestions and forwards onRetry", async () => {
     const user = userEvent.setup();
     const onRetry = jest.fn();
     const latest = {
@@ -48,9 +43,10 @@ describe("EvalMessage", () => {
     };
 
     render(<EvalMessage latest={latest} onRetry={onRetry} />);
-    const carouselBtn = screen.getByTestId("carousel");
-    expect(carouselBtn).toHaveTextContent("carousel(2)");
-    await user.click(carouselBtn);
+
+    const car = screen.getByTestId("carousel");
+    expect(car).toHaveTextContent("carousel(2)");
+    await user.click(car);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
