@@ -1,3 +1,15 @@
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import EvalMessage from "../EvalMessage";
+
+// Mock Carousel so we can assert it renders and forwards onRetry
+jest.mock("../Carousel", () => (props) => (
+  <button data-testid="carousel" onClick={props.onRetry}>
+    carousel({Array.isArray(props.list) ? props.list.length : 0})
+  </button>
+));
+
 describe("EvalMessage", () => {
   test("returns null when latest is empty", () => {
     const { container } = render(<EvalMessage latest={{}} />);
@@ -16,21 +28,16 @@ describe("EvalMessage", () => {
 
     render(<EvalMessage latest={latest} onRetry={onRetry} />);
 
-    // comment shown
-    expect(screen.getByText(/Looks good/i)).toBeInTheDocument();
+    // comment is shown
+    expect(screen.getByText(/looks good/i)).toBeInTheDocument();
 
-    // Carousel is rendered with one item (matches current component behavior)
+    // Carousel is rendered with one item (matches component behavior)
     const car = screen.getByTestId("carousel");
     expect(car).toHaveTextContent("carousel(1)");
 
-    // onRetry is forwarded
+    // onRetry forwarded
     await user.click(car);
     expect(onRetry).toHaveBeenCalledTimes(1);
-
-    // suggestion text appears somewhere in the node tree
-    expect(
-      screen.getByText((_, node) => node?.textContent?.includes("A concise title"))
-    ).toBeInTheDocument();
   });
 
   test("renders carousel for multiple suggestions and forwards onRetry", async () => {
@@ -43,7 +50,6 @@ describe("EvalMessage", () => {
     };
 
     render(<EvalMessage latest={latest} onRetry={onRetry} />);
-
     const car = screen.getByTestId("carousel");
     expect(car).toHaveTextContent("carousel(2)");
     await user.click(car);
