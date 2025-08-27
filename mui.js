@@ -1,183 +1,117 @@
-// src/modules/im001/consants.js
-export const FIELD_LABELS = {
-  incidentNumber: "Incident number",
-  title: "Title",
-  status: "Status",
-  countriesImpacted: "Known countries/entities impacted",
-  whatDoesThisMean: "What does this mean for our customers and colleagues?",
-  latestUpdate: "Latest update",
-  knownRootCause: "Known root cause",
-  summary: "Summary",
-};
+// src/components/molecules/Carousel.jsx
+import React from "react";
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
+import { Box, Typography, IconButton } from "@mui/material";
+import { ChevronLeft, ChevronRight, Loop as LoopIcon } from "@mui/icons-material";
 
-// src/components/RegenerateMINDialog.jsx
-import React, { useEffect, useState } from "react";
-import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography,
-} from "@mui/material";
-import SharedButton from "./molecules/SharedButton";
-import TextArea from "./molecules/TextArea";
-import { FIELD_LABELS } from "../modules/im001/consants"; // ← adjust relative path as needed
+const PrevArrow = ({ onClick, currentSlide }) => (
+  <IconButton
+    aria-label="previous"
+    onClick={onClick}
+    disabled={currentSlide === 0}
+    size="small"
+    sx={{
+      position: "absolute",
+      top: "50%",
+      left: 8,
+      transform: "translateY(-50%)",
+      zIndex: 2,
+      bgcolor: "background.paper",
+      boxShadow: 1,
+      "&:disabled": { opacity: 0.4 },
+    }}
+  >
+    <ChevronLeft fontSize="small" />
+  </IconButton>
+);
 
-export default function RegenerateMINDialog({
-  open,
-  onClose,
-  fieldName,   // pass the FIELD KEY (e.g., "latestUpdate")
-  onSubmit,
-  loading = false,
-}) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState(false);
-  const [helperText, setHelperText] = useState("");
+const NextArrow = ({ onClick, currentSlide, slideCount }) => (
+  <IconButton
+    aria-label="next"
+    onClick={onClick}
+    disabled={currentSlide >= (slideCount ?? 0) - 1}
+    size="small"
+    sx={{
+      position: "absolute",
+      top: "50%",
+      right: 8,
+      transform: "translateY(-50%)",
+      zIndex: 2,
+      bgcolor: "background.paper",
+      boxShadow: 1,
+      "&:disabled": { opacity: 0.4 },
+    }}
+  >
+    <ChevronRight fontSize="small" />
+  </IconButton>
+);
 
-  useEffect(() => {
-    if (open) {
-      setValue("");
-      setError(false);
-      setHelperText("");
-    }
-  }, [open]);
+export default function Carousel({ list = [], onRetry }) {
+  const isSingle = list.length <= 1;
 
-  const displayName = FIELD_LABELS[fieldName] ?? "this field";
-
-  const handleChange = (e) => {
-    const v = e.target.value;
-    setValue(v);
-    const isEmpty = v.trim() === "";
-    setError(isEmpty);
-    setHelperText(isEmpty ? "This field is required." : "");
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const v = value.trim();
-    if (!v) {
-      setError(true);
-      setHelperText("This field is required.");
-      return;
-    }
-    onSubmit?.(v);
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle>Regenerate answer</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            You’ve chosen to regenerate the answer to{" "}
-            <strong>{displayName}</strong>. Please share any new details or
-            changes you’d like included.
-          </Typography>
-          <Box>
-            <TextArea
-              ariaLabel="Regeneration notes"
-              placeholder="Enter your text here..."
-              name="reason"
-              minRows={5}
-              value={value}
-              onChange={handleChange}
-              error={error}
-              helperText={helperText}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <SharedButton onClick={onClose} disabled={loading}>Cancel</SharedButton>
-          <SharedButton type="submit" variant="contained" disabled={loading}>Confirm</SharedButton>
-        </DialogActions>
-      </form>
-    </Dialog>
-  );
-}
-// src/components/RegenerateMINDialog.jsx
-import React, { useEffect, useState } from "react";
-import {
-  Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography,
-} from "@mui/material";
-import SharedButton from "./molecules/SharedButton";
-import TextArea from "./molecules/TextArea";
-import { FIELD_LABELS } from "../modules/im001/consants"; // ← adjust relative path as needed
-
-export default function RegenerateMINDialog({
-  open,
-  onClose,
-  fieldName,   // pass the FIELD KEY (e.g., "latestUpdate")
-  onSubmit,
-  loading = false,
-}) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState(false);
-  const [helperText, setHelperText] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setValue("");
-      setError(false);
-      setHelperText("");
-    }
-  }, [open]);
-
-  const displayName = FIELD_LABELS[fieldName] ?? "this field";
-
-  const handleChange = (e) => {
-    const v = e.target.value;
-    setValue(v);
-    const isEmpty = v.trim() === "";
-    setError(isEmpty);
-    setHelperText(isEmpty ? "This field is required." : "");
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const v = value.trim();
-    if (!v) {
-      setError(true);
-      setHelperText("This field is required.");
-      return;
-    }
-    onSubmit?.(v);
+  const settings = {
+    dots: false,
+    arrows: true,
+    infinite: false,
+    speed: 300,
+    slidesToShow: isSingle ? 1 : 2,
+    slidesToScroll: 1,
+    initialSlide: 0,
+    nextArrow: <NextArrow />,
+    prevArrow: <PrevArrow />,
+    responsive: [
+      {
+        breakpoint: 1024,
+        settings: {
+          slidesToShow: isSingle ? 1 : 2,
+          slidesToScroll: 1,
+        },
+      },
+      {
+        breakpoint: 600,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          initialSlide: 0,
+        },
+      },
+    ],
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle>Regenerate answer</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            You’ve chosen to regenerate the answer to{" "}
-            <strong>{displayName}</strong>. Please share any new details or
-            changes you’d like included.
-          </Typography>
-          <Box>
-            <TextArea
-              ariaLabel="Regeneration notes"
-              placeholder="Enter your text here..."
-              name="reason"
-              minRows={5}
-              value={value}
-              onChange={handleChange}
-              error={error}
-              helperText={helperText}
-            />
+    <Box
+      className="slider-container"
+      sx={{
+        position: "relative",
+        overflow: "hidden",   // keep arrows/content inside
+        px: 5,                // space so arrows don’t overlap text
+      }}
+    >
+      <Box className="loop-icon-btn" sx={{ mb: 0.5 }}>
+        <IconButton
+          aria-label="retry"
+          onClick={onRetry}
+          sx={{ color: "black", p: 0 }}
+          disabled={list.length === 0}
+        >
+          <LoopIcon />
+        </IconButton>
+      </Box>
+
+      <Slider {...settings}>
+        {list.map((item, idx) => (
+          <Box key={`sug_${idx}`} sx={{ px: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", mt: 0.75, color: "text.secondary" }}
+            >
+              <strong>GenAI Output:</strong> {item}
+            </Typography>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <SharedButton onClick={onClose} disabled={loading}>Cancel</SharedButton>
-          <SharedButton type="submit" variant="contained" disabled={loading}>Confirm</SharedButton>
-        </DialogActions>
-      </form>
-    </Dialog>
+        ))}
+      </Slider>
+    </Box>
   );
 }
-
-
-{isOpenRegenerateMin && (
-  <RegenerateMINDialog
-    open={isOpenRegenerateMin}
-    fieldName={fieldData.name}                 // e.g., "latestUpdate"
-    loading={isRegenerating}
-    onClose={() => setOpenRegenerateMin(false)}
-    onSubmit={(reason) => onHandleRegenerateResponse(reason)}
-  />
-)}
