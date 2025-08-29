@@ -185,3 +185,44 @@ export default function FormFieldWithEval({
   onBlur={handleBlur}
   onRetry={onHandleRetry}
 />
+
+
+
+
+
+    <Grid rowSpacing={2} size={12}>
+  <Paper variant="outlined" sx={{ p: 3, boxShadow: "rgba(0, 0, 0, 0.16) 0px 1px 4px" }}>
+    <Grid mb={4}>
+      <FormFieldWithEval
+        type="dropdown"
+        name="countriesImpacted"
+        label={FIELD_LABELS.countriesImpacted}
+        values={values}
+        touched={touched}
+        errors={errors}
+        evalLatest={evalLatest}
+        onChange={(v) => setFieldValue("countriesImpacted", v)}
+        onBlur={handleBlur}
+        onRetry={onHandleRetry}
+        options={countriesOptions}
+        multiple
+      />
+    </Grid>
+
+    <Grid>
+      <FormFieldWithEval
+        type="textarea"
+        name="whatDoesThisMean"
+        label={FIELD_LABELS.whatDoesThisMean}
+        values={values}
+        touched={touched}
+        errors={errors}
+        evalLatest={evalLatest}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onRetry={onHandleRetry}
+        minRows={3}
+      />
+    </Grid>
+  </Paper>
+</Grid>
