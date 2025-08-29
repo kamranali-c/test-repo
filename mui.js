@@ -1,54 +1,187 @@
-// src/components/RegenerateMINDialog.test.js
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import RegenerateMINDialog from "./RegenerateMINDialog";
+// components/FormFieldWithEval.js
+import { Grid } from "@mui/material";
+import TextArea from "./TextArea";
+import InputText from "./InputText";
+import Dropdown from "./Dropdown";
+import EvalMessage from "./EvalMessage";
 
-// Match the import path used inside RegenerateMINDialog
-jest.mock("./molecules/TextArea", () => {
-  return function MockTextArea(props) {
-    const { ariaLabel, placeholder = "Enter your text here...", value, onChange } = props || {};
-    return (
-      <textarea
-        aria-label={ariaLabel || "Regeneration notes"}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-      />
-    );
-  };
-});
+export default function FormFieldWithEval({
+  type = "input", // "input" | "textarea" | "dropdown"
+  name,
+  label,
+  values,
+  touched,
+  errors,
+  evalLatest,
+  onChange,
+  onBlur,
+  onRetry,
+  ...rest // extra props (e.g. options, minRows, multiple, etc.)
+}) {
+  const error = Boolean(touched[name] && errors[name]);
+  const helperText = touched[name] && errors[name];
 
-// Match the exact import string used in your dialog for FIELD_LABELS
-jest.mock("../modules/im001/consants", () => ({
-  FIELD_LABELS: {
-    latestUpdate: "Latest update",
-    whatDoesThisMean: "What does this mean for our customers and colleagues?",
-  },
-}));
+  let FieldComponent;
+  switch (type) {
+    case "textarea":
+      FieldComponent = (
+        <TextArea
+          required
+          fullWidth
+          minRows={3}
+          label={label}
+          name={name}
+          value={values[name]}
+          onChange={onChange}
+          onBlur={onBlur}
+          error={error}
+          helperText={helperText}
+          {...rest}
+        />
+      );
+      break;
+    case "dropdown":
+      FieldComponent = (
+        <Dropdown
+          required
+          label={label}
+          name={name}
+          value={values[name]}
+          onChange={onChange}
+          error={error}
+          helperText={helperText}
+          {...rest}
+        />
+      );
+      break;
+    default:
+      FieldComponent = (
+        <InputText
+          required
+          fullWidth
+          label={label}
+          name={name}
+          value={values[name]}
+          onChange={onChange}
+          onBlur={onBlur}
+          error={error}
+          helperText={helperText}
+          {...rest}
+        />
+      );
+  }
 
-test("returns trimmed reason on confirm", async () => {
-  const user = userEvent.setup();
-  const onSubmit = jest.fn();
-
-  render(
-    <RegenerateMINDialog
-      open
-      fieldName="latestUpdate"
-      onClose={jest.fn()}
-      onSubmit={onSubmit}
-    />
+  return (
+    <Grid size={12}>
+      {FieldComponent}
+      {evalLatest && (
+        <EvalMessage
+          latest={evalLatest?.[name]}
+          onRetry={() =>
+            onRetry(name, evalLatest?.[name]?.suggestion?.[0] ?? "")
+          }
+        />
+      )}
+    </Grid>
   );
+}
 
-  // We can grab the textarea by its placeholder or role
-  const textarea = screen.getByRole("textbox"); // or: getByPlaceholderText(/enter your text here/i)
 
-  // Empty submit shows helper text
-  await user.click(screen.getByRole("button", { name: /confirm/i }));
-  expect(screen.getByText(/this field is required\./i)).toBeInTheDocument();
 
-  // Now type and confirm; should be trimmed
-  await user.type(textarea, "   try again please   ");
-  await user.click(screen.getByRole("button", { name: /confirm/i }));
-  expect(onSubmit).toHaveBeenCalledWith("try again please");
-});
+
+
+
+
+<FormFieldWithEval
+  type="input"
+  name="incidentNumber"
+  label={FIELD_LABELS.incidentNumber}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+  autoFocus
+  disabled={isDisabledIncidentNumber}
+/>
+
+<FormFieldWithEval
+  type="input"
+  name="title"
+  label={FIELD_LABELS.title}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+/>
+
+<FormFieldWithEval
+  type="dropdown"
+  name="status"
+  label={FIELD_LABELS.status}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={(v) => setFieldValue("status", v || "")}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+  options={statusOptions}
+/>
+
+<FormFieldWithEval
+  type="textarea"
+  name="whatDoesThisMean"
+  label={FIELD_LABELS.whatDoesThisMean}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+/>
+
+<FormFieldWithEval
+  type="textarea"
+  name="latestUpdate"
+  label={FIELD_LABELS.latestUpdate}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+/>
+
+<FormFieldWithEval
+  type="textarea"
+  name="knownRootCause"
+  label={FIELD_LABELS.knownRootCause}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+/>
+
+<FormFieldWithEval
+  type="textarea"
+  name="summary"
+  label={FIELD_LABELS.summary}
+  values={values}
+  touched={touched}
+  errors={errors}
+  evalLatest={evalLatest}
+  onChange={handleChange}
+  onBlur={handleBlur}
+  onRetry={onHandleRetry}
+/>
