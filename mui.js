@@ -6,9 +6,10 @@ import Dropdown from "./Dropdown";
 import EvalMessage from "./EvalMessage";
 
 export default function FormFieldWithEval({
-  type = "input", // "input" | "textarea" | "dropdown"
+  type = "input",
   name,
   label,
+  gridSize = { xs: 12 },   // 👈 default full width, can override
   values,
   touched,
   errors,
@@ -16,7 +17,7 @@ export default function FormFieldWithEval({
   onChange,
   onBlur,
   onRetry,
-  ...rest // extra props (e.g. options, minRows, multiple, etc.)
+  ...rest
 }) {
   const error = Boolean(touched[name] && errors[name]);
   const helperText = touched[name] && errors[name];
@@ -72,7 +73,7 @@ export default function FormFieldWithEval({
   }
 
   return (
-    <Grid size={12}>
+    <Grid size={gridSize}>
       {FieldComponent}
       {evalLatest && (
         <EvalMessage
@@ -91,138 +92,34 @@ export default function FormFieldWithEval({
 
 
 
+<Grid container spacing={4}>
+  <FormFieldWithEval
+    type="input"
+    name="incidentNumber"
+    label={FIELD_LABELS.incidentNumber}
+    values={values}
+    touched={touched}
+    errors={errors}
+    evalLatest={evalLatest}
+    onChange={handleChange}
+    onBlur={handleBlur}
+    onRetry={onHandleRetry}
+    gridSize={{ xs: 12, md: 4 }}   // 👈 keep 4/12 split
+    autoFocus
+    disabled={isDisabledIncidentNumber}
+  />
 
-<FormFieldWithEval
-  type="input"
-  name="incidentNumber"
-  label={FIELD_LABELS.incidentNumber}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-  autoFocus
-  disabled={isDisabledIncidentNumber}
-/>
-
-<FormFieldWithEval
-  type="input"
-  name="title"
-  label={FIELD_LABELS.title}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-/>
-
-<FormFieldWithEval
-  type="dropdown"
-  name="status"
-  label={FIELD_LABELS.status}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={(v) => setFieldValue("status", v || "")}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-  options={statusOptions}
-/>
-
-<FormFieldWithEval
-  type="textarea"
-  name="whatDoesThisMean"
-  label={FIELD_LABELS.whatDoesThisMean}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-/>
-
-<FormFieldWithEval
-  type="textarea"
-  name="latestUpdate"
-  label={FIELD_LABELS.latestUpdate}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-/>
-
-<FormFieldWithEval
-  type="textarea"
-  name="knownRootCause"
-  label={FIELD_LABELS.knownRootCause}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-/>
-
-<FormFieldWithEval
-  type="textarea"
-  name="summary"
-  label={FIELD_LABELS.summary}
-  values={values}
-  touched={touched}
-  errors={errors}
-  evalLatest={evalLatest}
-  onChange={handleChange}
-  onBlur={handleBlur}
-  onRetry={onHandleRetry}
-/>
-
-
-
-
-
-    <Grid rowSpacing={2} size={12}>
-  <Paper variant="outlined" sx={{ p: 3, boxShadow: "rgba(0, 0, 0, 0.16) 0px 1px 4px" }}>
-    <Grid mb={4}>
-      <FormFieldWithEval
-        type="dropdown"
-        name="countriesImpacted"
-        label={FIELD_LABELS.countriesImpacted}
-        values={values}
-        touched={touched}
-        errors={errors}
-        evalLatest={evalLatest}
-        onChange={(v) => setFieldValue("countriesImpacted", v)}
-        onBlur={handleBlur}
-        onRetry={onHandleRetry}
-        options={countriesOptions}
-        multiple
-      />
-    </Grid>
-
-    <Grid>
-      <FormFieldWithEval
-        type="textarea"
-        name="whatDoesThisMean"
-        label={FIELD_LABELS.whatDoesThisMean}
-        values={values}
-        touched={touched}
-        errors={errors}
-        evalLatest={evalLatest}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        onRetry={onHandleRetry}
-        minRows={3}
-      />
-    </Grid>
-  </Paper>
+  <FormFieldWithEval
+    type="input"
+    name="title"
+    label={FIELD_LABELS.title}
+    values={values}
+    touched={touched}
+    errors={errors}
+    evalLatest={evalLatest}
+    onChange={handleChange}
+    onBlur={handleBlur}
+    onRetry={onHandleRetry}
+    gridSize={{ xs: 12, md: 8 }}   // 👈 keep 8/12 split
+  />
 </Grid>
