@@ -1,97 +1,72 @@
-// utils/formatHistoryResults.js
-// Turn an array of review results into { initialValues, initialEval } for the form + EvalMessage.
+// utils/formatters.js (or wherever formatHistoryResults lives)
+export function formatHistoryResults(rows = []) {
+  const fields = [
+    "title",
+    "summary",
+    "whatDoesThisMean",
+    "knownRootCause",
+    "latestUpdate",
+    "countriesImpacted", // mapped from knownCountries in the API
+  ];
 
-const toArray = (v) => {
-  if (v == null) return [];
-  if (Array.isArray(v)) return v;
-  // suggestions sometimes come with \n
-  return String(v)
-    .split("\n")
-    .map(s => s.trim())
-    .filter(Boolean);
-};
+  // latest record (most recent) for filling the read-only form
+  const latest = rows[rows.length - 1] || {};
 
-const dedupe = (arr) => [...new Set(arr.map(s => s.trim()).filter(Boolean))];
+  const initialValues = {
+    incidentNumber: latest.incidentNumber ?? "",
+    title: latest.title ?? "",
+    summary: latest.summary ?? "",
+    whatDoesThisMean: latest.whatDoesThisMean ?? "",
+    knownRootCause: latest.knownRootCause ?? "",
+    latestUpdate: latest.latestUpdate ?? "",
+    countriesImpacted:
+      Array.isArray(latest.knownCountries) ? latest.knownCountries : [],
+    status: latest.status ?? "",
+  };
 
-const parseCountries = (v) => {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(s => String(s).trim()).filter(Boolean);
-  return String(v)
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-};
-
-const pickLatest = (list) => {
-  if (!Array.isArray(list) || list.length === 0) return {};
-  // prefer timestamp; fallback to id
-  const byTs = [...list].sort((a, b) => {
-    const ta = a?.timestamp ? Date.parse(a.timestamp) : 0;
-    const tb = b?.timestamp ? Date.parse(b.timestamp) : 0;
-    if (ta !== tb) return ta - tb;
-    return (a?.id ?? 0) - (b?.id ?? 0);
-  });
-  return byTs[byTs.length - 1] || {};
-};
-
-const collect = (records, base, latest) => ({
-  result: latest?.[`${base}Result`] ?? "",
-  comment: latest?.[`${base}Comment`] ?? "",
-  suggestion: dedupe(
-    records.flatMap(r => toArray(r?.[`${base}Suggestion`]))
-  ),
-});
-
-export function formatHistoryResults(records = []) {
-  const arr = Array.isArray(records) ? records.filter(Boolean) : [records].filter(Boolean);
-  if (arr.length === 0) {
-    return {
-      initialValues: {
-        incidentNumber: "",
-        title: "",
-        summary: "",
-        whatDoesThisMean: "",
-        knownRootCause: "",
-        latestUpdate: "",
-        status: "",
-        countriesImpacted: [],
-      },
-      initialEval: {},
+  const initialEval = {};
+  for (const f of fields) {
+    initialEval[f] = {
+      result: latest[`${mapApiField(f)}Result`] ?? "",
+      comment: latest[`${mapApiField(f)}Comment`] ?? "",
+      suggestion: [],
     };
   }
 
-  const latest = pickLatest(arr);
+  // minimal normalization so *exact* dupes collapse, but “couldn’t” vs “unable to” survive
+  const norm = (s) => String(s).replace(/\s+/g, " ").trim().toLowerCase();
 
-  const initialValues = {
-    incidentNumber: latest?.incidentNumber ?? "",
-    title: latest?.title ?? "",
-    summary: latest?.summary ?? "",
-    whatDoesThisMean: latest?.whatDoesThisMean ?? "",
-    knownRootCause: latest?.knownRootCause ?? "",
-    latestUpdate: latest?.latestUpdate ?? "",
-    status: latest?.status ?? "",
-    // API field is "knownCountries" -> our form uses "countriesImpacted"
-    countriesImpacted: parseCountries(latest?.knownCountries),
-  };
+  const seen = Object.fromEntries(fields.map((f) => [f, new Set()]));
 
-  const initialEval = {
-    title:             collect(arr, "title",             latest),
-    summary:           collect(arr, "summary",           latest),
-    whatDoesThisMean:  collect(arr, "whatDoesThisMean",  latest),
-    knownRootCause:    collect(arr, "knownRootCause",    latest),
-    latestUpdate:      collect(arr, "latestUpdate",      latest),
-    // Countries use the *knownCountries* keys in the API:
-    countriesImpacted: {
-      result: latest?.knownCountriesResult ?? "",
-      comment: latest?.knownCountriesComment ?? "",
-      // show either explicit suggestions or the country strings themselves
-      suggestion: dedupe(
-        arr.flatMap(r =>
-          toArray(r?.knownCountriesSuggestion ?? r?.knownCountries)
-        )
-      ),
-    },
-  };
+  // collect suggestions from every row (oldest -> newest keeps stable, newest -> oldest also fine)
+  for (const row of rows) {
+    pushIfUnique("title", row.titleSuggestion);
+    pushIfUnique("summary", row.summarySuggestion);
+    pushIfUnique("whatDoesThisMean", row.whatDoesThisMeanSuggestion);
+    pushIfUnique("knownRootCause", row.knownRootCauseSuggestion);
+    pushIfUnique("latestUpdate", row.latestUpdateSuggestion);
+    // API uses knownCountriesSuggestion; we surface under countriesImpacted
+    pushIfUnique("countriesImpacted", row.knownCountriesSuggestion);
+  }
+
+  function pushIfUnique(field, value) {
+    if (!value) return;
+    const key = norm(value);
+    if (key && !seen[field].has(key)) {
+      seen[field].add(key);
+      initialEval[field].suggestion.push(value);
+    }
+  }
 
   return { initialValues, initialEval };
+}
+
+// map UI keys to API base field names for result/comment lookup above
+function mapApiField(uiField) {
+  switch (uiField) {
+    case "countriesImpacted":
+      return "knownCountries";
+    default:
+      return uiField;
+  }
 }
