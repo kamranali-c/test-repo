@@ -1,72 +1,33 @@
-// utils/formatters.js (or wherever formatHistoryResults lives)
-export function formatHistoryResults(rows = []) {
-  const fields = [
-    "title",
-    "summary",
-    "whatDoesThisMean",
-    "knownRootCause",
-    "latestUpdate",
-    "countriesImpacted", // mapped from knownCountries in the API
-  ];
+// services/im001.js
+export const fetchReviewResultsByTaskId = async (taskId) => {
+  const { data } = await axios.get(
+    `${API_URL}/api/v1/im001/review-result/${taskId}`,
+    { withCredentials: true }
+  );
+  return data; // just return what the API gives you
+};
 
-  // latest record (most recent) for filling the read-only form
-  const latest = rows[rows.length - 1] || {};
+// utils/reviewResults.js
+export const normalizeReviewResults = (data) => {
+  const rows = Array.isArray(data) ? data : [data];
+  // optional: newest last (or flip the comparator if you prefer newest first)
+  rows.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  return rows;
+};
 
-  const initialValues = {
-    incidentNumber: latest.incidentNumber ?? "",
-    title: latest.title ?? "",
-    summary: latest.summary ?? "",
-    whatDoesThisMean: latest.whatDoesThisMean ?? "",
-    knownRootCause: latest.knownRootCause ?? "",
-    latestUpdate: latest.latestUpdate ?? "",
-    countriesImpacted:
-      Array.isArray(latest.knownCountries) ? latest.knownCountries : [],
-    status: latest.status ?? "",
-  };
+// where you use it (module/page)
+import { fetchReviewResultsByTaskId } from "@/services/im001";
+import { normalizeReviewResults } from "@/utils/reviewResults";
+import { formatHistoryResults } from "@/modules/im001/formatters";
 
-  const initialEval = {};
-  for (const f of fields) {
-    initialEval[f] = {
-      result: latest[`${mapApiField(f)}Result`] ?? "",
-      comment: latest[`${mapApiField(f)}Comment`] ?? "",
-      suggestion: [],
-    };
-  }
+const data = await fetchReviewResultsByTaskId(taskId);
+const rows = normalizeReviewResults(data);           // <- outside the async fetch
+const { initialValues, initialEval } = formatHistoryResults(rows);
 
-  // minimal normalization so *exact* dupes collapse, but “couldn’t” vs “unable to” survive
-  const norm = (s) => String(s).replace(/\s+/g, " ").trim().toLowerCase();
+// services/im001.js
+import { normalizeReviewResults } from "@/utils/reviewResults";
 
-  const seen = Object.fromEntries(fields.map((f) => [f, new Set()]));
-
-  // collect suggestions from every row (oldest -> newest keeps stable, newest -> oldest also fine)
-  for (const row of rows) {
-    pushIfUnique("title", row.titleSuggestion);
-    pushIfUnique("summary", row.summarySuggestion);
-    pushIfUnique("whatDoesThisMean", row.whatDoesThisMeanSuggestion);
-    pushIfUnique("knownRootCause", row.knownRootCauseSuggestion);
-    pushIfUnique("latestUpdate", row.latestUpdateSuggestion);
-    // API uses knownCountriesSuggestion; we surface under countriesImpacted
-    pushIfUnique("countriesImpacted", row.knownCountriesSuggestion);
-  }
-
-  function pushIfUnique(field, value) {
-    if (!value) return;
-    const key = norm(value);
-    if (key && !seen[field].has(key)) {
-      seen[field].add(key);
-      initialEval[field].suggestion.push(value);
-    }
-  }
-
-  return { initialValues, initialEval };
-}
-
-// map UI keys to API base field names for result/comment lookup above
-function mapApiField(uiField) {
-  switch (uiField) {
-    case "countriesImpacted":
-      return "knownCountries";
-    default:
-      return uiField;
-  }
-}
+export const getReviewResultsByTaskId = async (taskId) => {
+  const data = await fetchReviewResultsByTaskId(taskId);
+  return normalizeReviewResults(data);
+};
