@@ -28,34 +28,48 @@ const pickLatest = (list) => {
   return byTs[byTs.length - 1] || {};
 };
 
+// “Has usable value?” (rejects null/undefined/empty/whitespace)
+const hasValue = (v) =>
+  v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim() !== "");
+
 /**
- * Pick the most recent record that actually has data for a given base key.
- * We consider any of: base, baseResult, baseComment, baseSuggestion as “has data”.
+ * Return the most recent record that actually has *any* data
+ * for the field group `base` (raw/base, baseResult, baseComment, baseSuggestion).
  */
 const pickLatestWithField = (records, base) => {
   const byTs = orderByTimeAsc(records);
   for (let i = byTs.length - 1; i >= 0; i--) {
     const r = byTs[i];
     if (
-      r?.[base] != null ||
-      r?.[`${base}Result`] != null ||
-      r?.[`${base}Comment`] != null ||
-      r?.[`${base}Suggestion`] != null
+      hasValue(r?.[base]) ||
+      hasValue(r?.[`${base}Result`]) ||
+      hasValue(r?.[`${base}Comment`]) ||
+      hasValue(r?.[`${base}Suggestion`])
     ) {
       return r;
     }
   }
-  // nothing had data – return the newest anyway
+  return byTs[byTs.length - 1] || {};
+};
+
+/**
+ * Pick the most recent record having a non-empty *raw* field.
+ * (Used for initialValues, e.g., title/summary/latestUpdate/etc.)
+ */
+const latestWithRaw = (records, key) => {
+  const byTs = orderByTimeAsc(records);
+  for (let i = byTs.length - 1; i >= 0; i--) {
+    const r = byTs[i];
+    if (hasValue(r?.[key])) return r;
+  }
   return byTs[byTs.length - 1] || {};
 };
 
 const collect = (records, base) => {
   const best = pickLatestWithField(records, base);
   return {
-    // take the best non-empty/latest values for result & comment
     result: best?.[`${base}Result`] ?? "",
     comment: best?.[`${base}Comment`] ?? "",
-    // keep suggestions aggregated across *all* records
     suggestion: dedupe(records.flatMap(r => toArray(r?.[`${base}Suggestion`]))),
   };
 };
@@ -80,15 +94,19 @@ export function formatHistoryResults(records = []) {
 
   const latest = pickLatest(arr);
 
+  // For each field, take the newest non-empty value; fall back to newest record if none present.
   const initialValues = {
     incidentNumber: latest?.incidentNumber ?? "",
-    title: latest?.title ?? "",
-    summary: latest?.summary ?? "",
-    whatDoesThisMean: latest?.whatDoesThisMean ?? "",
-    knownRootCause: latest?.knownRootCause ?? "",
-    latestUpdate: latest?.latestUpdate ?? "",
-    status: latest?.status ?? "",
-    countriesImpacted: parseCountries(latest?.knownCountries),
+
+    title:            (latestWithRaw(arr, "title")?.title ?? "").trim(),
+    summary:          (latestWithRaw(arr, "summary")?.summary ?? "").trim(),
+    whatDoesThisMean: (latestWithRaw(arr, "whatDoesThisMean")?.whatDoesThisMean ?? "").trim(),
+    knownRootCause:   (latestWithRaw(arr, "knownRootCause")?.knownRootCause ?? "").trim(),
+    latestUpdate:     (latestWithRaw(arr, "latestUpdate")?.latestUpdate ?? "").trim(),
+    status:           (latestWithRaw(arr, "status")?.status ?? "").trim(),
+
+    // API uses "knownCountries" → our form uses "countriesImpacted"
+    countriesImpacted: parseCountries(latestWithRaw(arr, "knownCountries")?.knownCountries),
   };
 
   const initialEval = {
@@ -97,11 +115,13 @@ export function formatHistoryResults(records = []) {
     whatDoesThisMean:  collect(arr, "whatDoesThisMean"),
     knownRootCause:    collect(arr, "knownRootCause"),
     latestUpdate:      collect(arr, "latestUpdate"),
+
+    // Countries use the knownCountries* keys
     countriesImpacted: (() => {
       const best = pickLatestWithField(arr, "knownCountries");
       return {
-        result: best?.knownCountriesResult ?? "",
-        comment: best?.knownCountriesComment ?? "",
+        result:   best?.knownCountriesResult ?? "",
+        comment:  best?.knownCountriesComment ?? "",
         suggestion: dedupe(
           arr.flatMap(r => toArray(r?.knownCountriesSuggestion ?? r?.knownCountries))
         ),
