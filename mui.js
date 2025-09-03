@@ -1,14 +1,13 @@
 // utils/formatHistoryResults.js
-// Collapses history rows -> { initialValues, initialEval } and hydrates dropdowns.
 
-/* ---------------- helpers ---------------- */
+/* ---------- helpers ---------- */
 
 const toArray = (v) => {
   if (v == null) return [];
   if (Array.isArray(v)) return v.filter(Boolean).map(String).map(s => s.trim()).filter(Boolean);
-  // keep paragraph blocks (split only on blank lines)
   const s = String(v).trim();
   if (!s) return [];
+  // keep paragraph blocks intact
   return /\n{2,}/.test(s) ? [s] : [s];
 };
 
@@ -18,13 +17,9 @@ const dedupe = (arr) =>
 const parseCountries = (v) => {
   if (!v) return [];
   if (Array.isArray(v)) return v.filter(Boolean).map(String).map(s => s.trim()).filter(Boolean);
-  return String(v)
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
 };
 
-// scan from the end and return the last non-empty value for key
 const lastNonEmpty = (records, key) => {
   for (let i = records.length - 1; i >= 0; i--) {
     const val = records[i]?.[key];
@@ -34,19 +29,6 @@ const lastNonEmpty = (records, key) => {
   return "";
 };
 
-// latest record by timestamp (fallback to id)
-const pickLatest = (records) => {
-  if (!Array.isArray(records) || records.length === 0) return {};
-  const sorted = [...records].sort((a, b) => {
-    const ta = a?.timestamp ? Date.parse(a.timestamp) : 0;
-    const tb = b?.timestamp ? Date.parse(b.timestamp) : 0;
-    if (ta !== tb) return ta - tb;
-    return (a?.id ?? 0) - (b?.id ?? 0);
-  });
-  return sorted[sorted.length - 1] || {};
-};
-
-// collect result/comment from last-non-empty + suggestions from all
 const collect = (records, base) => {
   const result   = lastNonEmpty(records, `${base}Result`)   || "";
   const comment  = lastNonEmpty(records, `${base}Comment`)  || "";
@@ -56,17 +38,7 @@ const collect = (records, base) => {
   return { result, comment, suggestion };
 };
 
-// dropdown mappers
-const mapSingleToOptionValue = (raw, options = []) => {
-  const s = String(raw ?? "").trim();
-  if (!s) return "";
-  const hit =
-    options.find(o => o?.value === s) ||
-    options.find(o => o?.label === s) ||
-    options.find(o => o?.label?.toLowerCase?.() === s.toLowerCase());
-  return hit ? hit.value : s; // fall back to raw (read-only still displays)
-};
-
+// map countries to option values (array)
 const mapMultiToOptionValues = (rawList, options = []) => {
   const list = Array.isArray(rawList) ? rawList : [rawList];
   const out = [];
@@ -79,15 +51,14 @@ const mapMultiToOptionValues = (rawList, options = []) => {
       options.find(o => o?.label?.toLowerCase?.() === s.toLowerCase());
     out.push(hit ? hit.value : s);
   }
-  // dedupe, keep original order
   return [...new Set(out)];
 };
 
-/* ---------------- main ---------------- */
+/* ---------- main ---------- */
 
 export function formatHistoryResults(
   records = [],
-  { statusOptions = [], countriesOptions = [] } = {}
+  { countriesOptions = [] } = {}
 ) {
   const arr = Array.isArray(records) ? records.filter(Boolean) : [records].filter(Boolean);
 
@@ -107,7 +78,7 @@ export function formatHistoryResults(
     };
   }
 
-  // Build raw initialValues via "last non-empty wins"
+  // last non-empty wins (raw values)
   const initialValuesRaw = {
     incidentNumber:   lastNonEmpty(arr, "incidentNumber") || "",
     title:            lastNonEmpty(arr, "title") || "",
@@ -115,11 +86,10 @@ export function formatHistoryResults(
     whatDoesThisMean: lastNonEmpty(arr, "whatDoesThisMean") || "",
     knownRootCause:   lastNonEmpty(arr, "knownRootCause") || "",
     latestUpdate:     lastNonEmpty(arr, "latestUpdate") || "",
-    status:           lastNonEmpty(arr, "status") || "",
+    status:           (lastNonEmpty(arr, "status") || "").trim(), // leave as string
     countriesImpacted: parseCountries(lastNonEmpty(arr, "knownCountries")),
   };
 
-  // initialEval: use last-non-empty for result/comment; aggregate suggestions
   const initialEval = {
     title:             collect(arr, "title"),
     summary:           collect(arr, "summary"),
@@ -127,19 +97,21 @@ export function formatHistoryResults(
     knownRootCause:    collect(arr, "knownRootCause"),
     latestUpdate:      collect(arr, "latestUpdate"),
     countriesImpacted: {
-      result:    lastNonEmpty(arr, "knownCountriesResult")  || "",
-      comment:   lastNonEmpty(arr, "knownCountriesComment") || "",
+      result:     lastNonEmpty(arr, "knownCountriesResult")  || "",
+      comment:    lastNonEmpty(arr, "knownCountriesComment") || "",
       suggestion: dedupe(
         arr.flatMap(r => toArray(r?.knownCountriesSuggestion ?? r?.knownCountries))
       ),
     },
   };
 
-  // ----- HYDRATE dropdowns here -----
+  // hydrate only countries; status stays string
   const initialValues = {
     ...initialValuesRaw,
-    status: mapSingleToOptionValue(initialValuesRaw.status, statusOptions), // string
-    countriesImpacted: mapMultiToOptionValues(initialValuesRaw.countriesImpacted, countriesOptions), // array
+    countriesImpacted: mapMultiToOptionValues(
+      initialValuesRaw.countriesImpacted,
+      countriesOptions
+    ),
   };
 
   return { initialValues, initialEval };
