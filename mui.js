@@ -1,8 +1,8 @@
-// formatHistoryResults.js
+// utils/formatHistoryResults.js
 
 const toArray = (v) => {
   if (v == null) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(s => String(s).trim()).filter(Boolean);
+  if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
   const s = String(v).trim();
   return s ? [s] : [];
 };
@@ -11,38 +11,18 @@ const dedupe = (arr) => [...new Set(arr.map(s => s.trim()).filter(Boolean))];
 
 const parseCountries = (v) => {
   if (!v) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(s => String(s).trim()).filter(Boolean);
-  return String(v)
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
+  if (Array.isArray(v)) return v.map(String).map(s => s.trim()).filter(Boolean);
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
 };
 
-const pickLatest = (list) => {
-  if (!Array.isArray(list) || list.length === 0) return {};
-  const byTs = [...list].sort((a, b) => {
-    const ta = a?.timestamp ? Date.parse(a.timestamp) : 0;
-    const tb = b?.timestamp ? Date.parse(b.timestamp) : 0;
-    if (ta !== tb) return ta - tb;
-    return (a?.id ?? 0) - (b?.id ?? 0);
-  });
-  return byTs[byTs.length - 1] || {};
-};
-
-// NEW: walk from newest → oldest and return the first non-empty value
-const backfill = (records, getter) => {
+// newest → oldest, return first non-empty scalar
+const backfillScalar = (records, key) => {
   for (let i = records.length - 1; i >= 0; i--) {
-    const v = getter(records[i]);
-    if (v != null && String(v).trim() !== "") return v;
+    const val = records[i]?.[key];
+    if (val != null && String(val).trim() !== "") return String(val);
   }
   return "";
 };
-
-const collect = (records, base, latest) => ({
-  result: latest?.[`${base}Result`] ?? "",
-  comment: latest?.[`${base}Comment`] ?? "",
-  suggestion: dedupe(records.flatMap(r => toArray(r?.[`${base}Suggestion`]))),
-});
 
 export function formatHistoryResults(records = []) {
   const arr = Array.isArray(records) ? records.filter(Boolean) : [records].filter(Boolean);
@@ -62,34 +42,38 @@ export function formatHistoryResults(records = []) {
     };
   }
 
-  const latest = pickLatest(arr);
-
-  // Use the LAST non-empty knownCountries across the history
-  const knownCountriesStr = backfill(arr, r => r?.knownCountries);
-
+  // Values shown in the form — use most recent non-empty values
   const initialValues = {
-    incidentNumber: latest?.incidentNumber ?? "",
-    title:           backfill(arr, r => r?.title),
-    summary:         backfill(arr, r => r?.summary),
-    whatDoesThisMean: backfill(arr, r => r?.whatDoesThisMean),
-    knownRootCause:   backfill(arr, r => r?.knownRootCause),
-    latestUpdate:     backfill(arr, r => r?.latestUpdate),
-    status:           backfill(arr, r => r?.status),
-    countriesImpacted: parseCountries(knownCountriesStr), // ← prefill dropdown only
+    incidentNumber:   backfillScalar(arr, "incidentNumber"),
+    title:            backfillScalar(arr, "title"),
+    summary:          backfillScalar(arr, "summary"),
+    whatDoesThisMean: backfillScalar(arr, "whatDoesThisMean"),
+    knownRootCause:   backfillScalar(arr, "knownRootCause"),
+    latestUpdate:     backfillScalar(arr, "latestUpdate"),
+    status:           backfillScalar(arr, "status"),
+    countriesImpacted: parseCountries(backfillScalar(arr, "knownCountries")),
   };
 
-  const initialEval = {
-    title:            collect(arr, "title",            latest),
-    summary:          collect(arr, "summary",          latest),
-    whatDoesThisMean: collect(arr, "whatDoesThisMean", latest),
-    knownRootCause:   collect(arr, "knownRootCause",   latest),
-    latestUpdate:     collect(arr, "latestUpdate",     latest),
+  // Helper: collect eval with backfilled result/comment and merged suggestions
+  const collect = (base) => ({
+    result:    backfillScalar(arr, `${base}Result`),
+    comment:   backfillScalar(arr, `${base}Comment`),
+    suggestion: dedupe(arr.flatMap(r => toArray(r?.[`${base}Suggestion`]))),
+  });
 
-    // Countries: keep pass/fail + comment if you like, but NO suggestions / carousel.
+  // Eval blocks used by your green/red banner + carousel
+  const initialEval = {
+    title:            collect("title"),
+    summary:          collect("summary"),
+    whatDoesThisMean: collect("whatDoesThisMean"),
+    knownRootCause:   collect("knownRootCause"),
+    latestUpdate:     collect("latestUpdate"),
+
+    // Countries: keep pass/fail + comment, but NO suggestions (no carousel)
     countriesImpacted: {
-      result:  latest?.knownCountriesResult ?? "",
-      comment: latest?.knownCountriesComment ?? "",
-      suggestion: [], // ← no GenAI Output for countries
+      result:    backfillScalar(arr, "knownCountriesResult"),
+      comment:   backfillScalar(arr, "knownCountriesComment"),
+      suggestion: [],
     },
   };
 
