@@ -1,14 +1,11 @@
 // utils/formatHistoryResults.js
 
 /* ---------- helpers ---------- */
-
 const toArray = (v) => {
   if (v == null) return [];
   if (Array.isArray(v)) return v.filter(Boolean).map(String).map(s => s.trim()).filter(Boolean);
   const s = String(v).trim();
-  if (!s) return [];
-  // keep paragraph blocks intact
-  return /\n{2,}/.test(s) ? [s] : [s];
+  return s ? [s] : [];
 };
 
 const dedupe = (arr) =>
@@ -30,32 +27,28 @@ const lastNonEmpty = (records, key) => {
 };
 
 const collect = (records, base) => {
-  const result   = lastNonEmpty(records, `${base}Result`)   || "";
-  const comment  = lastNonEmpty(records, `${base}Comment`)  || "";
+  const result   = lastNonEmpty(records, `${base}Result`)  || "";
+  const comment  = lastNonEmpty(records, `${base}Comment`) || "";
   const suggestion = dedupe(
     records.flatMap(r => toArray(r?.[`${base}Suggestion`]))
   );
   return { result, comment, suggestion };
 };
 
-// map countries to option values (array)
-const mapMultiToOptionValues = (rawList, options = []) => {
-  const list = Array.isArray(rawList) ? rawList : [rawList];
-  const out = [];
-  for (const raw of list) {
-    const s = String(raw ?? "").trim();
-    if (!s) continue;
+// Turn country array (or csv) into a nice comma-separated label string.
+const countriesToString = (rawList, options = []) => {
+  const list = Array.isArray(rawList) ? rawList : parseCountries(rawList);
+  const labels = list.map(s => {
     const hit =
       options.find(o => o?.value === s) ||
       options.find(o => o?.label === s) ||
       options.find(o => o?.label?.toLowerCase?.() === s.toLowerCase());
-    out.push(hit ? hit.value : s);
-  }
-  return [...new Set(out)];
+    return hit ? hit.label : s;
+  });
+  return labels.filter(Boolean).join(", ");
 };
 
 /* ---------- main ---------- */
-
 export function formatHistoryResults(
   records = [],
   { countriesOptions = [] } = {}
@@ -72,24 +65,28 @@ export function formatHistoryResults(
         knownRootCause: "",
         latestUpdate: "",
         status: "",
-        countriesImpacted: [],
+        countriesImpacted: "",           // <- string
       },
       initialEval: {},
     };
   }
 
-  // last non-empty wins (raw values)
-  const initialValuesRaw = {
-    incidentNumber:   lastNonEmpty(arr, "incidentNumber") || "",
-    title:            lastNonEmpty(arr, "title") || "",
-    summary:          lastNonEmpty(arr, "summary") || "",
+  // Build initialValues from the last non-empty value across the list.
+  const initialValues = {
+    incidentNumber:   lastNonEmpty(arr, "incidentNumber")   || "",
+    title:            lastNonEmpty(arr, "title")            || "",
+    summary:          lastNonEmpty(arr, "summary")          || "",
     whatDoesThisMean: lastNonEmpty(arr, "whatDoesThisMean") || "",
-    knownRootCause:   lastNonEmpty(arr, "knownRootCause") || "",
-    latestUpdate:     lastNonEmpty(arr, "latestUpdate") || "",
-    status:           (lastNonEmpty(arr, "status") || "").trim(), // leave as string
-    countriesImpacted: parseCountries(lastNonEmpty(arr, "knownCountries")),
+    knownRootCause:   lastNonEmpty(arr, "knownRootCause")   || "",
+    latestUpdate:     lastNonEmpty(arr, "latestUpdate")     || "",
+    status:           (lastNonEmpty(arr, "status") || "").trim(),
+    countriesImpacted: countriesToString(
+      parseCountries(lastNonEmpty(arr, "knownCountries")),
+      countriesOptions
+    ), // <- single string like "Hong Kong, England"
   };
 
+  // Build initialEval; keep countries suggestions/comments but no carousel items required.
   const initialEval = {
     title:             collect(arr, "title"),
     summary:           collect(arr, "summary"),
@@ -103,15 +100,6 @@ export function formatHistoryResults(
         arr.flatMap(r => toArray(r?.knownCountriesSuggestion ?? r?.knownCountries))
       ),
     },
-  };
-
-  // hydrate only countries; status stays string
-  const initialValues = {
-    ...initialValuesRaw,
-    countriesImpacted: mapMultiToOptionValues(
-      initialValuesRaw.countriesImpacted,
-      countriesOptions
-    ),
   };
 
   return { initialValues, initialEval };
