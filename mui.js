@@ -1,106 +1,77 @@
-// utils/formatHistoryResults.js
+// src/utils/__tests__/formatHistoryResults.test.js
+import { formatHistoryResults } from '../formatHistoryResults';
 
-/* ---------- helpers ---------- */
-const toArray = (v) => {
-  if (v == null) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(String).map(s => s.trim()).filter(Boolean);
-  const s = String(v).trim();
-  return s ? [s] : [];
-};
+const COUNTRIES = [
+  { value: 'Hong Kong', label: 'Hong Kong' },
+  { value: 'England',   label: 'England' },
+  { value: 'France',    label: 'France' },
+];
 
-const dedupe = (arr) =>
-  [...new Set(arr.map(s => String(s).trim()).filter(Boolean))];
+const rec = (over = {}) => ({
+  id: over.id ?? 1,
+  taskId: 't-1',
+  incidentNumber: over.incidentNumber ?? 'INC-123',
+  title: over.title ?? null,
+  titleResult: over.titleResult ?? null,
+  titleComment: over.titleComment ?? null,
+  titleSuggestion: over.titleSuggestion ?? null,
+  summary: over.summary ?? null,
+  latestUpdate: over.latestUpdate ?? null,
+  knownRootCause: over.knownRootCause ?? null,
+  whatDoesThisMean: over.whatDoesThisMean ?? null,
+  status: over.status ?? null,
+  knownCountries: over.knownCountries ?? null,
+  knownCountriesResult: over.knownCountriesResult ?? null,
+  knownCountriesComment: over.knownCountriesComment ?? null,
+  knownCountriesSuggestion: over.knownCountriesSuggestion ?? null,
+  timestamp: over.timestamp ?? '2025-09-02T12:00:00Z',
+});
 
-const parseCountries = (v) => {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.filter(Boolean).map(String).map(s => s.trim()).filter(Boolean);
-  return String(v).split(",").map(s => s.trim()).filter(Boolean);
-};
-
-const lastNonEmpty = (records, key) => {
-  for (let i = records.length - 1; i >= 0; i--) {
-    const val = records[i]?.[key];
-    if (Array.isArray(val) && val.length > 0) return val;
-    if (typeof val === "string" && val.trim() !== "") return val;
-  }
-  return "";
-};
-
-const collect = (records, base) => {
-  const result   = lastNonEmpty(records, `${base}Result`)  || "";
-  const comment  = lastNonEmpty(records, `${base}Comment`) || "";
-  const suggestion = dedupe(
-    records.flatMap(r => toArray(r?.[`${base}Suggestion`]))
-  );
-  return { result, comment, suggestion };
-};
-
-// Turn country array (or csv) into a nice comma-separated label string.
-const countriesToString = (rawList, options = []) => {
-  const list = Array.isArray(rawList) ? rawList : parseCountries(rawList);
-  const labels = list.map(s => {
-    const hit =
-      options.find(o => o?.value === s) ||
-      options.find(o => o?.label === s) ||
-      options.find(o => o?.label?.toLowerCase?.() === s.toLowerCase());
-    return hit ? hit.label : s;
+describe('formatHistoryResults (simple)', () => {
+  test('empty input -> clean defaults', () => {
+    const { initialValues, initialEval } = formatHistoryResults([], { countriesOptions: COUNTRIES });
+    expect(initialValues).toEqual({
+      incidentNumber: '',
+      title: '',
+      summary: '',
+      whatDoesThisMean: '',
+      knownRootCause: '',
+      latestUpdate: '',
+      status: '',
+      countriesImpacted: '',
+    });
+    expect(initialEval.title).toEqual({ result: '', comment: '', suggestion: [] });
   });
-  return labels.filter(Boolean).join(", ");
-};
 
-/* ---------- main ---------- */
-export function formatHistoryResults(
-  records = [],
-  { countriesOptions = [] } = {}
-) {
-  const arr = Array.isArray(records) ? records.filter(Boolean) : [records].filter(Boolean);
+  test('last non-empty wins (newest blank does not overwrite older good value)', () => {
+    const older = rec({ title: 'Older title', titleResult: 'Pass', titleComment: 'ok', status: 'New' });
+    const newerBlank = rec({ id: 2, title: '', titleResult: '', titleComment: '', status: '' });
+    const { initialValues, initialEval } = formatHistoryResults([older, newerBlank], { countriesOptions: COUNTRIES });
+    expect(initialValues.title).toBe('Older title');
+    expect(initialValues.status).toBe('New');
+    expect(initialEval.title.result).toBe('Pass');
+    expect(initialEval.title.comment).toBe('ok');
+  });
 
-  if (arr.length === 0) {
-    return {
-      initialValues: {
-        incidentNumber: "",
-        title: "",
-        summary: "",
-        whatDoesThisMean: "",
-        knownRootCause: "",
-        latestUpdate: "",
-        status: "",
-        countriesImpacted: "",           // <- string
-      },
-      initialEval: {},
-    };
-  }
+  test('aggregates & dedupes suggestions across records (no paragraph splitting)', () => {
+    const r1 = rec({ id: 1, titleSuggestion: 'A' });
+    const r2 = rec({ id: 2, titleSuggestion: 'A' }); // duplicate
+    const r3 = rec({ id: 3, titleSuggestion: 'B' });
+    const { initialEval } = formatHistoryResults([r1, r2, r3], { countriesOptions: COUNTRIES });
+    expect(initialEval.title.suggestion).toEqual(['A', 'B']);
+  });
 
-  // Build initialValues from the last non-empty value across the list.
-  const initialValues = {
-    incidentNumber:   lastNonEmpty(arr, "incidentNumber")   || "",
-    title:            lastNonEmpty(arr, "title")            || "",
-    summary:          lastNonEmpty(arr, "summary")          || "",
-    whatDoesThisMean: lastNonEmpty(arr, "whatDoesThisMean") || "",
-    knownRootCause:   lastNonEmpty(arr, "knownRootCause")   || "",
-    latestUpdate:     lastNonEmpty(arr, "latestUpdate")     || "",
-    status:           (lastNonEmpty(arr, "status") || "").trim(),
-    countriesImpacted: countriesToString(
-      parseCountries(lastNonEmpty(arr, "knownCountries")),
-      countriesOptions
-    ), // <- single string like "Hong Kong, England"
-  };
+  test('countriesImpacted -> single, comma-separated string using option labels', () => {
+    const r = rec({ knownCountries: ['FRANCE', 'Hong Kong'] });
+    const { initialValues } = formatHistoryResults([r], { countriesOptions: COUNTRIES });
+    expect(initialValues.countriesImpacted).toBe('France, Hong Kong');
+  });
 
-  // Build initialEval; keep countries suggestions/comments but no carousel items required.
-  const initialEval = {
-    title:             collect(arr, "title"),
-    summary:           collect(arr, "summary"),
-    whatDoesThisMean:  collect(arr, "whatDoesThisMean"),
-    knownRootCause:    collect(arr, "knownRootCause"),
-    latestUpdate:      collect(arr, "latestUpdate"),
-    countriesImpacted: {
-      result:     lastNonEmpty(arr, "knownCountriesResult")  || "",
-      comment:    lastNonEmpty(arr, "knownCountriesComment") || "",
-      suggestion: dedupe(
-        arr.flatMap(r => toArray(r?.knownCountriesSuggestion ?? r?.knownCountries))
-      ),
-    },
-  };
-
-  return { initialValues, initialEval };
-}
+  test('countries eval backfills result/comment from last non-empty', () => {
+    const older = rec({ knownCountriesResult: 'Fail', knownCountriesComment: 'select all' });
+    const newerBlank = rec({ id: 2, knownCountriesResult: '', knownCountriesComment: '' });
+    const { initialEval } = formatHistoryResults([older, newerBlank], { countriesOptions: COUNTRIES });
+    expect(initialEval.countriesImpacted.result).toBe('Fail');
+    expect(initialEval.countriesImpacted.comment).toBe('select all');
+  });
+});
