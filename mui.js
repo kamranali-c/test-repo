@@ -1,41 +1,68 @@
-export const addWordSpacing = (key) =>
-  key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^\./, (s) => s);
+// utils/formatter.js
 
-export const formatMINData = (prevState, newRecords) => {
-  // UI field -> API base key (countries use knownCountries in the API)
+export const addWordSpacing = (key = "") =>
+  String(key).replace(/([a-z])([A-Z])/g, "$1 $2");
+
+/* ---------- normalisers ---------- */
+const toText = (v) => {
+  if (Array.isArray(v)) return v.map(toText).filter(Boolean).join(", ");
+  if (v && typeof v === "object") {
+    if ("label" in v) return String(v.label);
+    if ("value" in v) return String(v.value);
+    return "";
+  }
+  return v == null ? "" : String(v);
+};
+
+// Keep paragraph blocks together; split only on blank lines
+const toItems = (v) =>
+  v == null
+    ? []
+    : Array.isArray(v)
+    ? v.map(toText).filter(Boolean)
+    : String(v)
+        .split(/\n{2,}/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+const dedupe = (arr = []) => [...new Set(arr.map((s) => String(s)))].filter(Boolean);
+
+/* ---------- main reducer used by both review & regenerate ---------- */
+export const formatMINData = (prevState = {}, newRecords = {}) => {
+  // NOTE: include knownCountries so the form can show its PASS/FAIL + comment
+  // but we purposely DO NOT surface suggestions for countries.
   const FIELDS = [
-    ["title",            "title"],
-    ["summary",          "summary"],
-    ["latestUpdate",     "latestUpdate"],
-    ["knownRootCause",   "knownRootCause"],
-    ["whatDoesThisMean", "whatDoesThisMean"],
-    ["countriesImpacted","knownCountries"], // ✅ include countries for result/comment only
+    "title",
+    "summary",
+    "latestUpdate",
+    "knownRootCause",
+    "whatDoesThisMean",
+    "knownCountries",
   ];
 
   const out = { ...prevState };
-  const asArr = (x) =>
-    Array.isArray(x) ? x : (x != null && String(x).trim() ? [String(x).trim()] : []);
 
-  FIELDS.forEach(([formKey, apiBase]) => {
-    const resultKey     = `${apiBase}Result`;
-    const commentKey    = `${apiBase}Comment`;
-    const suggestionKey = `${apiBase}Suggestion`;
+  FIELDS.forEach((field) => {
+    const result = toText(newRecords[`${field}Result`]);
+    const comment = toText(newRecords[`${field}Comment`]);
 
-    const result   = newRecords[resultKey]   ?? "";
-    const comment  = newRecords[commentKey]  ?? "";
+    // Countries: no GenAI outputs list in the UI; keep empty.
+    const rawSuggestion =
+      field === "knownCountries" ? [] : toItems(newRecords[`${field}Suggestion`]);
 
-    // ❗ Countries never show suggestions
-    const suggestion =
-      formKey === "countriesImpacted" ? [] : asArr(newRecords[suggestionKey]);
+    if (!out[field]) {
+      out[field] = {
+        result,
+        comment,
+        suggestion: dedupe(rawSuggestion),
+      };
+      return;
+    }
 
-    if (!out[formKey]) {
-      out[formKey] = { result, comment, suggestion };
-    } else {
-      if (result)  out[formKey].result  = result;
-      if (comment) out[formKey].comment = comment;
-      if (formKey !== "countriesImpacted" && suggestion.length) {
-        out[formKey].suggestion = [...(out[formKey].suggestion || []), ...suggestion];
-      }
+    if (result) out[field].result = result;
+    if (comment) out[field].comment = comment;
+    if (rawSuggestion?.length) {
+      out[field].suggestion = dedupe([...(out[field].suggestion || []), ...rawSuggestion]);
     }
   });
 
