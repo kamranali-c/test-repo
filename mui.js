@@ -1,35 +1,39 @@
+const toLocalDateTime = (raw) => {
+  if (!raw) return '-';
+  const s = String(raw);
 
-const getPrevResponse = (key) => {
-  const node = evalLatest?.[key];
-  if (!node) return "";
-
-  if (key === "countriesImpacted") {
-    return (node.comment || "").trim();
+  // Try native parse first
+  let d = new Date(s);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleString('en-GB', dateFormatOptionsWithSeconds);
   }
 
-  const sug = Array.isArray(node.suggestion) ? node.suggestion : [];
-  return (node.value && String(node.value).trim()) || (sug[sug.length - 1] || "");
+  // Fallback: old API strings without timezone / seconds
+  // Keep minutes only and add Z so Date parses as UTC
+  const withZ = `${s.replace(' ', 'T').slice(0, 16)}Z`;
+  d = new Date(withZ);
+  return Number.isNaN(d.getTime())
+    ? s
+    : d.toLocaleString('en-GB', dateFormatOptionsWithSeconds);
 };
 
-
-// Normalize the value we’re sending (string for dropdown)
-let currentValue = getFormValue(fieldData.name);
-if (fieldData.name === "countriesImpacted" && Array.isArray(currentValue)) {
-  currentValue = currentValue.filter(Boolean).join(", ");
+{
+  field: 'submittedTime',
+  headerName: 'Submitted Time',
+  flex: 0.5,
+  // Make sure the grid has a value even if the backend key changed
+  valueGetter: ({ row }) =>
+    row.submittedTime ?? row.submitted_time ?? row.timestamp ?? null,
+  renderCell: (params) => <span>{toLocalDateTime(params.value)}</span>,
+  filterable: false,
 }
 
-// For previousResponse: use comment for countries, normal logic for others
-const previous =
-  fieldData.name === "countriesImpacted"
-    ? (evalLatest?.countriesImpacted?.comment?.trim() || "")
-    : getPrevResponse(fieldData.name);
-
-// Final payload
-const payload = {
-  taskId: incidentReviewResponse?.taskId,
-  incidentNumber: incidentReviewResponse?.incidentNumber,
-  field: toApiField(fieldData.name),   // <-- sends "knownCountries"
-  value: currentValue,                 // e.g. "Hong Kong, France"
-  previousResponse: previous,          // comment for countries
-  reason,
-};
+{
+  field: 'completedTime',
+  headerName: 'Completed Time',
+  flex: 0.5,
+  valueGetter: ({ row }) =>
+    row.completedTime ?? row.completed_time ?? row.completedTimestamp ?? null,
+  renderCell: (params) => <span>{toLocalDateTime(params.value)}</span>,
+  filterable: false,
+}
