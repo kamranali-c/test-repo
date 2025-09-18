@@ -1,135 +1,58 @@
-{
-  field: "status",
-  headerName: "Status",
-  flex: 0.25,
-  sortable: false,
-  filterOperators,
-  valueGetter: (params) => {
-    const r = params.row || {};
-    const paused = !!(r.isPaused ?? r.taskStatus?.isPaused ?? r.status?.isPaused);
-    if (paused) return "Paused";
-    return r.status ?? r.taskStatus?.status ?? r.task_state ?? params.value ?? "";
-  },
-  renderCell: (params) => {
-    const r = params.row || {};
-    const paused = !!(r.isPaused ?? r.taskStatus?.isPaused ?? r.status?.isPaused);
-    if (paused && typeof props.onResumeTask === "function") {
-      return (
-        <Tooltip title="Click to resume">
-          <Button
-            size="small"
-            variant="text"
-            onClick={(e) => {
-              e.stopPropagation();      // don’t select the row
-              props.onResumeTask(r);    // delegate to screen
-            }}
-          >
-            Paused
-          </Button>
-        </Tooltip>
-      );
+// Turn on via any of:
+// 1) URL:        ?simulatePaused=1
+// 2) localStorage.setItem('simulatePaused', '1')
+// 3) .env:       VITE_SIMULATE_PAUSED=true
+export function simulatePausedEnabled() {
+  try {
+    if (import.meta?.env?.VITE_SIMULATE_PAUSED === "true") return true;
+  } catch {}
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("simulatePaused") === "1") return true;
+  } catch {}
+  try {
+    if (typeof localStorage !== "undefined" && localStorage.getItem("simulatePaused") === "1") {
+      return true;
     }
-    const txt = r.status ?? r.taskStatus?.status ?? r.task_state ?? params.value ?? "";
-    return <span>{txt}</span>;
-  },
+  } catch {}
+  return false;
+}
+
+// Apply to a list response (e.g., getTasksByUserId)
+export function simulatePauseOnRows(rows) {
+  if (!simulatePausedEnabled() || !Array.isArray(rows)) return rows;
+  // mark the first Processing item (or the first row) as paused for visibility
+  let marked = false;
+  return rows.map((r, idx) => {
+    if (!marked && (r?.status === "Processing" || idx === 0)) {
+      marked = true;
+      return { ...r, isPaused: true };
+    }
+    return r;
+  });
+}
+
+// Apply to a single status object (e.g., getTaskStatusByTaskId)
+export function simulatePauseOnStatus(statusObj) {
+  if (!simulatePausedEnabled() || !statusObj) return statusObj;
+  return { ...statusObj, isPaused: true };
 }
 
 
---
+----
 
-  import { resumeTaskStatus } from "@/api/taskStatus";
+  const fetchIncidentRequests = useCallback(
+  async (paginationModel, filterColumn, sortModel) => {
+    const result = await getTasksByUserId(
+      buildFilterPayload(paginationModel, filterColumn, sortModel, dateRange),
+      isUserTasks ? "all-tasks" : "current-user-tasks"
+    );
 
-const getRowTaskId = (row) => row?.taskId ?? row?.id ?? row?.task_id;
-
-const handleResumeIM003 = async (row) => {
-  try {
-    showLoading();
-    const id = getRowTaskId(row);
-    await resumeTaskStatus(id, "IM003");
-    emailAlert({ type: "success", message: "Task resumed." });
-
-    if (selectedTask?.taskId && id === selectedTask.taskId) {
-      const fresh = await getTaskStatus(id);   // your existing fn
-      if (fresh) updatedTaskData(fresh);       // your existing setter
-    }
-
-    setPaginationModel((pm) => ({ ...pm }));   // refetch current page
-  } catch (e) {
-    emailAlert({ type: "error", message: "Failed to resume task: " + e.message });
-  } finally {
-    hideLoading();
-  }
-};
-
-
---
-
-  <TaskTable
-  data={data.rows}
-  rowCount={data.rowCount}
-  paginationModel={data.paginationModel}
-  onPaginationModelChange={data.setPaginationModel}
-  apiRef={taskDataGridApiRef}
-  onRowClick={handleRowClick}
-  jobIdPrefix="IM"
-  showCautionCount={false}
-  requestTypeHeader="Incident Requests"
-  filterModel={filterModelIR}
-  onFilterModelChange={onFilterModelIR}
-  sortModel={sortModelIR}
-  setSortModel={setSortModelIR}
-  onResumeTask={handleResumeIM003}
-/>
-
-
---
-
-    import { resumeTaskStatus } from "@/api/taskStatus";
-
-const getRowTaskId = (row) => row?.taskId ?? row?.id ?? row?.task_id;
-
-const handleResumeCE001 = async (row) => {
-  try {
-    showLoading();
-    const id = getRowTaskId(row);
-    await resumeTaskStatus(id, "CE001");
-    emailAlert({ type: "success", message: "Task resumed." });
-
-    if (selectedTask?.taskId && id === selectedTask.taskId) {
-      const fresh = await getTaskStatus(id);
-      if (fresh) updatedTaskData(fresh);
-    }
-
-    setPaginationModel((pm) => ({ ...pm }));
-  } catch (e) {
-    emailAlert({ type: "error", message: "Failed to resume task: " + e.message });
-  } finally {
-    hideLoading();
-  }
-};
-
-
---
-
-  
-
-
---
-const handleResumeIM003 = async (row) => {
-  try {
-    showLoading();
-    const id = row?.taskId ?? row?.id ?? row?.task_id;
-    await resumeTaskStatus(id, "IM003");
-    emailAlert({ type: "success", message: "Task resumed." });
-
-    if (selectedTask?.taskId && id === selectedTask.taskId) {
-      const fresh = await getTaskStatus(id);
-      if (fresh) updatedTaskData(fresh);
-    }
-    setPaginationModel((pm) => ({ ...pm }));
-  } catch (e) {
-    emailAlert({ type: "error", message: "Failed to resume task: " + (extractApiError ? extractApiError(e) : e.message) });
-  } finally {
-    hideLoading();
-  }
-};
+    const rows = simulatePauseOnRows(result.data ?? []);
+    return {
+      rows,
+      metadata: result.metadata ?? {},
+    };
+  },
+  [isUserTasks, dateRange]
+);
