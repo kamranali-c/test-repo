@@ -1,83 +1,109 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, FormControl, InputLabel, MenuItem, Select, Tooltip, Typography } from "@mui/material";
-import PsychologyIcon from "@mui/icons-material/Psychology";
-import { useAuth } from "../hooks/useAuth"; // adjust path if needed
+// src/components/ModelSelector.test.js
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import ModelSelector from "./ModelSelector";
 
-const OPTIONS = [
-  { id: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet", provider: "claude" },
-  { id: "mistral-large-latest", label: "Mistral Large",   provider: "mistral" },
-];
+jest.mock("../hooks/useAuth", () => ({ useAuth: jest.fn() }));
+import { useAuth } from "../hooks/useAuth";
 
-// If perms don’t grant anything, we still show this one
-const FALLBACK_MODEL_ID = "mistral-large-latest";
+const openSelect = () => {
+  const trigger = screen.getByLabelText(/model/i);
+  fireEvent.mouseDown(trigger);
+};
 
-export default function ModelSelector({ onChange, size = "small" }) {
-  const { userInfo, hasPermission } = useAuth();
-  const roles = userInfo?.roles || [];
-  const isMistralAD = roles.includes("MISTRAL_AD");
+describe("ModelSelector (RBAC filtered, no AD lock)", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-  const allowedOptions = useMemo(() => {
-    // Hard lock for MISTRAL_AD
-    if (isMistralAD) return OPTIONS.filter((o) => o.provider === "mistral");
+  test("shows only Claude when only model:claude is permitted", () => {
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: (p) => p === "model:claude",
+    });
 
-    const allowedIds = [];
-    if (hasPermission?.("model:claude"))  allowedIds.push("claude-3-5-sonnet");
-    if (hasPermission?.("model:mistral")) allowedIds.push("mistral-large-latest");
+    render(<ModelSelector />);
+    openSelect();
 
-    const ids = allowedIds.length ? allowedIds : [FALLBACK_MODEL_ID];
-    return OPTIONS.filter((o) => ids.includes(o.id));
-  }, [isMistralAD, hasPermission, roles.join("|")]);
+    expect(
+      screen.getByRole("option", { name: /claude 3\.5 sonnet/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /mistral large/i })
+    ).not.toBeInTheDocument();
+  });
 
-  // local controlled value that always remains valid
-  const [value, setValue] = useState(allowedOptions[0].id);
-  useEffect(() => {
-    if (!allowedOptions.find((o) => o.id === value)) {
-      setValue(allowedOptions[0].id);
-    }
-  }, [allowedOptions, value]);
+  test("shows both Claude and Mistral when both permissions are granted", () => {
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: (p) => p === "model:claude" || p === "model:mistral",
+    });
 
-  const handleChange = (e) => {
-    const v = e.target.value;
-    setValue(v);
-    onChange?.(v);
-  };
+    render(<ModelSelector />);
+    openSelect();
 
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      <PsychologyIcon fontSize="small" />
-      <FormControl
-        size={size}
-        sx={{
-          minWidth: 200,
-          mr: 2, // 16px
-          "& .MuiInputLabel-root": { color: "white" },
-          "& .MuiOutlinedInput-notchedOutline": { borderColor: "white" },
-          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "white" },
-          "& .MuiSelect-select": { color: "white", backgroundColor: "transparent" },
-          "& .MuiSvgIcon-root": { color: "white" },
-        }}
-      >
-        <InputLabel id="model-select-label">Model</InputLabel>
-        <Select
-          labelId="model-select-label"
-          label="Model"
-          value={value}
-          onChange={handleChange}
-          disabled={isMistralAD}
-        >
-          {allowedOptions.map((opt) => (
-            <MenuItem key={opt.id} value={opt.id}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+    expect(
+      screen.getByRole("option", { name: /claude 3\.5 sonnet/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: /mistral large/i })
+    ).toBeInTheDocument();
+  });
 
-      {isMistralAD && (
-        <Tooltip title="Your organisation restricts model changes (MISTRAL AD).">
-          <Typography variant="caption" color="white">Locked</Typography>
-        </Tooltip>
-      )}
-    </Box>
-  );
-}
+  test("falls back to Mistral when no model permissions are granted", () => {
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: () => false,
+    });
+
+    render(<ModelSelector />);
+    openSelect();
+
+    expect(
+      screen.getByRole("option", { name: /mistral large/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /claude 3\.5 sonnet/i })
+    ).not.toBeInTheDocument();
+  });
+
+  test("calls onChange with selected model id", () => {
+    const handleChange = jest.fn();
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: (p) => p === "model:claude" || p === "model:mistral",
+    });
+
+    render(<ModelSelector onChange={handleChange} />);
+    openSelect();
+    fireEvent.click(screen.getByRole("option", { name: /mistral large/i }));
+
+    expect(handleChange).toHaveBeenCalledTimes(1);
+    expect(handleChange).toHaveBeenCalledWith("mistral-large-latest");
+  });
+
+  test("keeps selection valid when permissions change (resets to first allowed)", () => {
+    // Start with both allowed, select Mistral
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: (p) => p === "model:claude" || p === "model:mistral",
+    });
+    const { rerender } = render(<ModelSelector />);
+    openSelect();
+    fireEvent.click(screen.getByRole("option", { name: /mistral large/i }));
+
+    // Now only Claude is permitted
+    useAuth.mockReturnValue({
+      userInfo: { roles: [] },
+      hasPermission: (p) => p === "model:claude",
+    });
+    rerender(<ModelSelector />);
+
+    openSelect();
+    // After permissions change, the selected option should be Claude
+    expect(
+      screen.getByRole("option", { name: /claude 3\.5 sonnet/i })
+    ).toHaveAttribute("aria-selected", "true");
+  });
+});
