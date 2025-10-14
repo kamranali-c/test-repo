@@ -1,73 +1,34 @@
-// src/components/ModelSelector.test.js
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import ModelSelector from "./ModelSelector";
+// Single source of truth for model selection + payload helper
 
-jest.mock("../hooks/useAuth", () => ({ useAuth: jest.fn() }));
-import { useAuth } from "../hooks/useAuth";
+export const DEFAULT_MODEL_ID = "mistral-large-latest";
 
-const openSelect = () => {
-  const trigger = screen.getByLabelText(/model/i);
-  fireEvent.mouseDown(trigger);
+export const MODEL_ID_TO_TYPE = {
+  "claude-3-5-sonnet": "Claude",
+  "mistral-large-latest": "Mistral",
 };
 
-describe("ModelSelector (RBAC filtered)", () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+// In-memory app state (good enough for this ticket; no persistence)
+let selectedModelId = DEFAULT_MODEL_ID;
 
-  test("fallback: shows only Mistral when no model permissions are granted", () => {
-    useAuth.mockReturnValue({
-      userInfo: { roles: [] },
-      hasPermission: () => false,
-    });
+export const setSelectedModelId = (id) => {
+  selectedModelId = MODEL_ID_TO_TYPE[id] ? id : DEFAULT_MODEL_ID;
+};
 
-    render(<ModelSelector />);
-    openSelect();
+export const getSelectedModelId = () => selectedModelId;
 
-    expect(screen.getByRole("option", { name: /mistral large/i })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /claude 3\.5 sonnet/i })).not.toBeInTheDocument();
-  });
+export const normaliseModelType = (id) => MODEL_ID_TO_TYPE[id] ?? "Mistral";
 
-  test("shows only Claude when only model:claude is permitted", () => {
-    useAuth.mockReturnValue({
-      userInfo: { roles: [] },
-      hasPermission: (p) => p === "model:claude",
-    });
+export const getSelectedModelType = () => normaliseModelType(selectedModelId);
 
-    render(<ModelSelector />);
-    openSelect();
-
-    expect(screen.getByRole("option", { name: /claude 3\.5 sonnet/i })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /mistral large/i })).not.toBeInTheDocument();
-  });
-
-  test("shows both models when both permissions are granted", () => {
-    useAuth.mockReturnValue({
-      userInfo: { roles: [] },
-      hasPermission: (p) => p === "model:claude" || p === "model:mistral",
-    });
-
-    render(<ModelSelector />);
-    openSelect();
-
-    expect(screen.getByRole("option", { name: /claude 3\.5 sonnet/i })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /mistral large/i })).toBeInTheDocument();
-  });
-
-  test("calls onChange with selected model id", () => {
-    const handleChange = jest.fn();
-    useAuth.mockReturnValue({
-      userInfo: { roles: [] },
-      hasPermission: (p) => p === "model:claude" || p === "model:mistral",
-    });
-
-    render(<ModelSelector onChange={handleChange} />);
-    openSelect();
-    fireEvent.click(screen.getByRole("option", { name: /mistral large/i }));
-
-    expect(handleChange).toHaveBeenCalledTimes(1);
-    expect(handleChange).toHaveBeenCalledWith("mistral-large-latest");
-  });
+// Attach modelType to any request body
+export const withModelType = (payload = {}) => ({
+  ...payload,
+  modelType: getSelectedModelType(),
 });
+
+// (Optional) add as query param for GET fallback paths
+export const addModelTypeQuery = (url) => {
+  const mt = encodeURIComponent(getSelectedModelType());
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}modelType=${mt}`;
+};
