@@ -1,34 +1,35 @@
-// Single source of truth for model selection + payload helper
+// src/utils/modelSelection.js
+export const DEFAULT_MODEL_ID = "mistral_large_2402_v1";
 
-export const DEFAULT_MODEL_ID = "mistral-large-latest";
-
-export const MODEL_ID_TO_TYPE = {
-  "claude-3-5-sonnet": "Claude",
-  "mistral-large-latest": "Mistral",
+const MODEL_ID_TO_UI = {
+  anthropic_claude_3_7_sonnet_v1: "Claude",
+  mistral_large_2402_v1: "Mistral",
 };
 
-// In-memory app state (good enough for this ticket; no persistence)
-let selectedModelId = DEFAULT_MODEL_ID;
+let selectedModelId = (typeof window !== "undefined" && localStorage.getItem("model.selected.id")) || DEFAULT_MODEL_ID;
 
 export const setSelectedModelId = (id) => {
-  selectedModelId = MODEL_ID_TO_TYPE[id] ? id : DEFAULT_MODEL_ID;
+  const valid = MODEL_ID_TO_UI[id] ? id : DEFAULT_MODEL_ID;
+  selectedModelId = valid;
+  try { localStorage.setItem("model.selected.id", valid); } catch {}
 };
 
-export const getSelectedModelId = () => selectedModelId;
+export const getSelectedModelType = () => MODEL_ID_TO_UI[selectedModelId] ?? "Mistral"; // for UI
+const getSelectedModelTypeAPI = () => getSelectedModelType().toUpperCase();            // for API
 
-export const normaliseModelType = (id) => MODEL_ID_TO_TYPE[id] ?? "Mistral";
+export const withModelType = (payload = {}) => {
+  const mt = getSelectedModelTypeAPI();
+  if (typeof FormData !== "undefined" && payload instanceof FormData) {
+    payload.set("modelType", mt);
+    return payload;
+  }
+  return { ...payload, modelType: mt };
+};
 
-export const getSelectedModelType = () => normaliseModelType(selectedModelId);
-
-// Attach modelType to any request body
-export const withModelType = (payload = {}) => ({
-  ...payload,
-  modelType: getSelectedModelType(),
-});
-
-// (Optional) add as query param for GET fallback paths
 export const addModelTypeQuery = (url) => {
-  const mt = encodeURIComponent(getSelectedModelType());
+  const mt = encodeURIComponent(getSelectedModelTypeAPI());
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}modelType=${mt}`;
 };
+
+export const guidelinePrefix = () => (getSelectedModelType() === "Claude" ? "-" : "#");
